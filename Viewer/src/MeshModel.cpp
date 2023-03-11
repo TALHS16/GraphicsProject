@@ -6,14 +6,14 @@
 #include <glm/gtx/string_cast.hpp>
 #include "Renderer.h"
 
-MeshModel::MeshModel(std::vector<Face> faces, std::vector<glm::vec3> vertices, std::vector<glm::vec3> normals, const std::string& model_name) :
+MeshModel::MeshModel(std::vector<Face> faces, std::vector<glm::vec3> vertices, std::vector<glm::vec3> normals, const std::string& model_name, std::vector<glm::vec2> textureCoords) :
 	faces(faces),
 	vertices(vertices),
 	normals(normals)
 {
-	NormolizeModel();
+	//NormolizeModel();
 	this->transform_matrix = glm::mat4(1.0f);
-  this->activeCamera=NULL;
+    this->activeCamera=NULL;
     show_axes = 0;
     show_faces_normals = 0;
     show_verteces_normals = 0;
@@ -26,11 +26,86 @@ MeshModel::MeshModel(std::vector<Face> faces, std::vector<glm::vec3> vertices, s
     this->down = Camera::screen_hight*Camera::screen_width;
     this->zMax = -1;
     this->zMin = Camera::screen_hight*Camera::screen_width;
-    cout << faces.size() << endl;
+    texture_type = 0;
+    mapping_type = 0;
+
     for (int i = 0; i < faces.size(); i++)
     {
         model_fill_color.push_back({ (float)rand() / RAND_MAX, (float)rand() / RAND_MAX, (float)rand() / RAND_MAX });
     }
+    float minX, maxX, minY, maxY, maxZ, minZ;
+    minX = vertices[0].x;
+    maxX = vertices[0].x;
+    minY = vertices[0].y;
+    maxY = vertices[0].y;
+    minZ = vertices[0].z;
+    maxZ = vertices[0].z;
+    for (int i = 1; i < vertices.size(); i++) {
+        minX = std::min(minX, vertices[i].x);
+        minY = std::min(minY, vertices[i].y);
+        minZ = std::min(minZ, vertices[i].z);
+        maxX = std::max(maxX, vertices[i].x);
+        maxY = std::max(maxY, vertices[i].y);
+        maxZ = std::max(maxZ, vertices[i].z);
+    }
+    float size = std::max(maxX - minX, maxY - minY);
+    size = std::max(size, maxZ - minZ);
+    float scale_factor = 100.0f / size;
+    glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor, scale_factor, scale_factor));
+
+    modelVertices.reserve(3 * faces.size());
+    for (int i = 0; i < faces.size(); i++)
+    {
+        Face currentFace = faces.at(i);
+        for (int j = 0; j < 3; j++)
+        {
+            int vertexIndex = currentFace.GetVertexIndex(j) - 1;
+
+            Vertex vertex;
+            glm::vec4 v(vertices[vertexIndex], 1.f);
+            v = scaleMat * v;
+            vertex.position = v/v.w;
+            vertex.normal = normals[vertexIndex];
+
+            if (textureCoords.size() > 0)
+            {
+                int textureCoordsIndex = currentFace.GetTextureIndex(j) - 1;
+                vertex.textureCoords = textureCoords[textureCoordsIndex];
+            }
+
+            modelVertices.push_back(vertex);
+        }
+    }
+
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, modelVertices.size() * sizeof(Vertex), &modelVertices[0], GL_STATIC_DRAW);
+
+    // Vertex Positions
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+
+    // Normals attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+
+    // Vertex Texture Coords
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)(6 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+
+    // Vertex Tangent
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)(9 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(3);
+
+    // Vertex bitangent
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)(12 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(4);
+
+    // unbind to make sure other code does not change it somewhere else
+    glBindVertexArray(0);
     
 }
 
@@ -43,7 +118,10 @@ void MeshModel::Print_Verrices() const
 	}
 		
 }
-
+bool& MeshModel::get_show_phong_shading()
+{
+    return this->show_phong_shading;
+}
 
 void MeshModel::Print_Faces() const
 {
@@ -69,14 +147,24 @@ std::vector<glm::vec3> MeshModel::get_model_fill_color()
     return model_fill_color;
 }
 
+int& MeshModel::get_curr_text_type()
+{
+    return texture_type; 
+}
 
-glm::vec2 MeshModel::get_normal_of_face(int face_index){
+int& MeshModel::get_curr_mapping()
+{
+    return mapping_type;
+}
+
+
+glm::vec3 MeshModel::get_normal_of_face(int face_index){
     glm::vec4 vertex4 = glm::vec4(this->faces_normals[face_index], 1.0f);
-    vertex4 = this->activeCamera->final_matrix() * this->rotate_word_matrix * this->rotate_local_matrix * vertex4;
+    vertex4 = this->rotate_word_matrix * this->rotate_local_matrix * vertex4;
     
     vertex4/=vertex4[3];
     
-    return  glm::vec2(vertex4[0], vertex4[1]);
+    return  vertex4;
 }
 
 glm::vec3& MeshModel::get_model_color()
@@ -94,7 +182,10 @@ void MeshModel::set_model_color(const glm::vec3& color_model)
 	this->color_model = color_model;
 }
 
-
+bool& MeshModel::get_show_light_direction()
+{
+    return this->show_light_direction;
+}
 bool& MeshModel::get_show_axes(){
     return this->show_axes;
 }
@@ -117,6 +208,15 @@ bool& MeshModel::get_fill_triangle()
     return this->fill_triangle;
 }
 
+bool& MeshModel::get_show_refelections()
+{
+    return this->show_refelections;
+}
+
+bool& MeshModel::get_show_show_gouraud_shading()
+{
+    return this->show_gouraud_shading;
+}
 
 
 glm::vec2 MeshModel::get_vertex2(int index, int first_cordinate, int second_cordinate)
@@ -144,14 +244,14 @@ glm::vec2 MeshModel::get_vertex2(int index, int first_cordinate, int second_cord
 }
 
 
-glm::vec2 MeshModel::get_normal2(int index, int first_cordinate, int second_cordinate)
+glm::vec3 MeshModel::get_normal(int index)
 {
     glm::vec4 vertex4 = this->get_normal4(index);
-    vertex4 = this->activeCamera->final_matrix() * this->rotate_word_matrix * this->rotate_local_matrix * vertex4;
+    vertex4 = this->rotate_word_matrix * this->rotate_local_matrix * vertex4;
     
     vertex4/=vertex4[3];
     
-    return  glm::vec2(vertex4[first_cordinate], vertex4[second_cordinate]);
+    return  vertex4;
 }
 
 const Face& MeshModel::GetFace(int index) const
@@ -229,8 +329,18 @@ MeshModel::~MeshModel()
 {
 }
 
+GLuint MeshModel::GetVAO() const
+{
+    return vao;
+}
+
+const std::vector<Vertex>& MeshModel::GetModelVertices()
+{
+    return modelVertices;
+}
+
 void MeshModel::NormolizeModel() {
-	float minX, maxX, minY, maxY, maxZ, minZ;
+	/*float minX, maxX, minY, maxY, maxZ, minZ;
 	minX = vertices[0].x;
 	maxX = vertices[0].x;
 	minY = vertices[0].y;
@@ -253,7 +363,7 @@ void MeshModel::NormolizeModel() {
 		glm::vec4 v(vertices[i], 1.f);
 		v = scaleMat * v;
 		vertices[i] = v;
-	}
+	}*/
 }
 
 glm::vec2 MeshModel::world_transform_point(glm::vec3 point){

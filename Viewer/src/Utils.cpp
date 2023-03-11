@@ -25,6 +25,7 @@ std::shared_ptr<MeshModel> Utils::LoadMeshModel(const std::string& filePath)
 	std::vector<Face> faces;
 	std::vector<glm::vec3> vertices;
 	std::vector<glm::vec3> normals;
+	std::vector<glm::vec2> textureCoords;
 	std::ifstream ifile(filePath.c_str());
 
 	// while not end of file
@@ -51,7 +52,7 @@ std::shared_ptr<MeshModel> Utils::LoadMeshModel(const std::string& filePath)
 		}
 		else if (lineType == "vt")
 		{
-			// TODO: Handle texture coordinates
+			textureCoords.push_back(Utils::Vec2fFromStream(issLine));
 		}
 		else if (lineType == "f")
 		{
@@ -66,27 +67,48 @@ std::shared_ptr<MeshModel> Utils::LoadMeshModel(const std::string& filePath)
 			std::cout << "Found unknown line Type \"" << lineType << "\"";
 		}
 	}
-	std::shared_ptr<MeshModel> new_meshModel = std::make_shared<MeshModel>(faces, vertices, normals, Utils::GetFileName(filePath));
-
-	for(int i=0; i <new_meshModel->GetFacesCount();i++){
-		int point0_index = new_meshModel->GetFace(i).GetVertexIndex(0);
-		int point1_index = new_meshModel->GetFace(i).GetVertexIndex(1);
-		int point2_index = new_meshModel->GetFace(i).GetVertexIndex(2);
-
-		glm::vec3 point0 = new_meshModel->get_vertex3(point0_index-1);
-		glm::vec3 point1 = new_meshModel->get_vertex3(point1_index-1);
-		glm::vec3 point2 = new_meshModel->get_vertex3(point2_index-1);
-
-		glm::vec3 normal = glm::cross(point1-point0, point2 - point1);
-
-        normal=glm::normalize(normal);
-
-        new_meshModel->faces_normals.push_back(normal);
-	}
-		
-
+	std::shared_ptr<MeshModel> new_meshModel = std::make_shared<MeshModel>(faces, vertices, CalNormals(vertices, faces), Utils::GetFileName(filePath), textureCoords);
 	new_meshModel->set_model_name(GetFileName(filePath));
-    return new_meshModel;
+	return new_meshModel;
+}
+
+std::vector<glm::vec3> Utils::CalNormals(std::vector<glm::vec3> vertices, std::vector<Face> faces)
+{
+	std::vector<int> faces_count(vertices.size());
+	std::vector<glm::vec3> normals(vertices.size());
+	for (int i = 0; i < faces_count.size(); i++)
+	{
+		faces_count[i] = 0;
+	}
+	for (int i = 0; i < faces.size(); i++) {
+		int point0_index = faces.at(i).GetVertexIndex(0) - 1;
+		int point1_index = faces.at(i).GetVertexIndex(1) - 1;
+		int point2_index = faces.at(i).GetVertexIndex(2) - 1;
+
+		glm::vec3 point0 = vertices.at(point0_index);
+		glm::vec3 point1 = vertices.at(point1_index);
+		glm::vec3 point2 = vertices.at(point2_index);
+
+		glm::vec3 normal = glm::cross( point0 - point1, point2 - point1);
+
+		normal = glm::normalize(-normal);
+
+		normals.at(point0_index) += normal;
+		normals.at(point1_index) += normal;
+		normals.at(point2_index) += normal;
+		
+		faces_count.at(point0_index) += 1;
+		faces_count.at(point1_index) += 1;
+		faces_count.at(point2_index) += 1;
+	}
+
+	for (int i = 0; i < normals.size(); i++)
+	{
+		normals[i] /= faces_count[i];
+		normals[i] = glm::normalize(normals[i]);
+	}
+
+	return normals;
 }
 
 std::string Utils::GetFileName(const std::string& filePath)

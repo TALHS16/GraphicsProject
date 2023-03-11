@@ -5,6 +5,10 @@
 
 #include "Camera.h"
 #include "MeshModel.h"
+#include "Light.h"
+#include "Light.h"
+#include "TextureCube.h"
+
 
 using namespace std;
 
@@ -28,11 +32,21 @@ public:
 
 	void SetActiveModelIndex(int index);
 	int GetActiveModelIndex() const;
+    
+    void AddLight(const shared_ptr<Light>& camera);
+    int GetLightCount() const;
+    Light& GetLight(int index);
+    Light& GetActiveLight() const;
+	vector<shared_ptr<Light>> getAllLight();
+    int GetActiveLightIndex() const;
+	void SetActiveLightIndex(int index);
 	
 private:
 	vector<shared_ptr<MeshModel>> mesh_models;
 	vector<shared_ptr<Camera>> cameras;
+    vector<shared_ptr<Light>> lights;
 
 	int active_camera_index;
 	int active_model_index;
+    int active_light_index;
 };

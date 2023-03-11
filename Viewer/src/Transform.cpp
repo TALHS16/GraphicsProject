@@ -10,7 +10,7 @@ Transform::Transform() {
 void Transform::init_trans()
 {
 	this->transform_matrix = glm::mat4(1.0f);
-	scale_factor = 1;
+	scale_factor = 1.f;
 	move_factor = { 0,0,0 };
 	rotate_factor = { 0,0,0 };
 	rotate_world_factor = { 0,0,0 };
@@ -64,9 +64,7 @@ void Transform::refresh_transform_matrix()
 {
 	this->transform_matrix = glm::mat4(1.0f);
 	//scale
-	glm::mat4 scale_matrix = glm::mat4(1.0f);
-	if (this->scale_factor != 0)
-		scale_matrix[3][3] = 1 / this->scale_factor;
+	glm::mat4 scale_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor, scale_factor, scale_factor));
 
 	this->transform_matrix = scale_matrix * this->transform_matrix;
 
@@ -107,7 +105,7 @@ void Transform::refresh_transform_matrix()
 		}
 		rotate_matrix = glm::transpose(rotate_matrix);
 		this->transform_matrix = move_matrix * rotate_matrix * invert_move_matrix * this->transform_matrix;
-		this->rotate_local_matrix = this->rotate_local_matrix * rotate_matrix;
+		this->rotate_local_matrix = rotate_matrix * this->rotate_local_matrix;
 	}
 	//rotate y
 	if (0 < this->rotate_factor[1] && this->rotate_factor[1] < 360) {
@@ -130,7 +128,7 @@ void Transform::refresh_transform_matrix()
 		}
 		rotate_y_matrix = glm::transpose(rotate_y_matrix);
 		this->transform_matrix = move_matrix * rotate_y_matrix * invert_move_matrix * this->transform_matrix;
-		this->rotate_local_matrix = this->rotate_local_matrix * rotate_y_matrix;
+		this->rotate_local_matrix = rotate_y_matrix * this->rotate_local_matrix;
 
 	}
 	//rotate z
@@ -155,7 +153,7 @@ void Transform::refresh_transform_matrix()
 		rotate_z_matrix = glm::transpose(rotate_z_matrix);
 		this->transform_matrix = move_matrix * rotate_z_matrix * invert_move_matrix * this->transform_matrix;
 
-		this->rotate_local_matrix = this->rotate_local_matrix * rotate_z_matrix;
+		this->rotate_local_matrix = rotate_z_matrix * this->rotate_local_matrix;
 
 	}
 

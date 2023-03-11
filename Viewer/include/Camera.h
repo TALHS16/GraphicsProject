@@ -26,6 +26,7 @@ public:
 	float get_dolly_zoom() const;
 	glm::mat4 final_matrix(); 
 	void setDollyZoom(float x);
+
 private:
 	glm::vec3 eye;
 	glm::vec3 at;

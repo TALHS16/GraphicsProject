@@ -19,10 +19,10 @@ void Camera::init()
 	flag_camera_view = 0;
 	view_transformation = glm::mat4(1.f);
 	projection_transformation = glm::mat4(1.f);
-	eye = glm::vec3(0.0f, 0.0f, 1000.0f);
+	eye = glm::vec3(0.0f, 0.0f, 500.0f);
 	at = glm::vec3(0.0f, 0.0f, 0.0f);
 	up = glm::vec3(0.0f, 1.0f, 0.0f);
-	this->ortho_vec = { -1280 / 2, 1280 / 2, -720 / 2, 720 / 2, -1, 1 };
+	this->ortho_vec = { -1280 / 2, 1280 / 2, -720 / 2, 720 / 2, 1, 1000 };
 	this->pers_vec = { 45.f,1280.f / 720.f, 1.f ,1000.f };
 	dolly_zoom = 0;
 }
@@ -31,6 +31,7 @@ Camera::~Camera()
 {
 	
 }
+
 
 void Camera::SetProjection()
 {
@@ -70,7 +71,7 @@ void Camera::SetCameraLookAt()
 const glm::mat4x4& Camera::GetViewTransformation()
 {
 	SetCameraLookAt();
-	return view_transformation;
+	return view_transformation; //* glm::inverse(this->get_world_transform_matrix() * this->get_local_transform_matrix());
 }
 
 glm::vec3& Camera::get_eye()
